@@ -15,7 +15,26 @@ func NewEnv() Env {
 	return &mapEnv{}
 }
 
-type mapEnv map[Tag]map[reflect.Type]Val
+type typeToVal interface {
+	Get(reflect.Type) (Val, bool)
+}
+
+type mapTypeToVal map[reflect.Type]Val
+
+func (m mapTypeToVal) Get(typ reflect.Type) (Val, bool) {
+	val, ok := m[typ]
+	return val, ok
+}
+
+type valForAllTypes struct {
+	val Val
+}
+
+func (v valForAllTypes) Get(_ reflect.Type) (Val, bool) {
+	return v.val, true
+}
+
+type mapEnv map[Tag]typeToVal
 
 func (e *mapEnv) Set(typ reflect.Type, tag Tag, val Val) {
 	if typ == nil {
@@ -24,24 +43,30 @@ func (e *mapEnv) Set(typ reflect.Type, tag Tag, val Val) {
 	if tag == nil {
 		panic(ErrNilTag)
 	}
-	e.setImpl(typ, tag, val)
+	if *e == nil {
+		*e = make(map[Tag]typeToVal)
+	}
+	ttvMap := func() mapTypeToVal {
+		if ttv, ok := (*e)[tag]; ok {
+			if ttvMap, ok := ttv.(mapTypeToVal); ok {
+				return ttvMap
+			}
+		}
+		ttvMap := make(mapTypeToVal)
+		(*e)[tag] = ttvMap
+		return ttvMap
+	}()
+	ttvMap[typ] = val
 }
 
 func (e *mapEnv) SetAll(tag Tag, val Val) {
 	if tag == nil {
 		panic(ErrNilTag)
 	}
-	e.setImpl(nil, tag, val)
-}
-
-func (e *mapEnv) setImpl(typ reflect.Type, tag Tag, val Val) {
 	if *e == nil {
-		*e = make(mapEnv)
+		*e = make(map[Tag]typeToVal)
 	}
-	if (*e)[tag] == nil {
-		(*e)[tag] = make(map[reflect.Type]Val)
-	}
-	(*e)[tag][typ] = val
+	(*e)[tag] = valForAllTypes{val: val}
 }
 
 func (e *mapEnv) Get(typ reflect.Type, tag Tag) (Val, bool) {
@@ -52,12 +77,7 @@ func (e *mapEnv) Get(typ reflect.Type, tag Tag) (Val, bool) {
 		panic(ErrNilTag)
 	}
 	if typeMap, ok := (*e)[tag]; ok {
-		if allVal, ok := typeMap[nil]; ok {
-			return allVal, true
-		}
-		if val, ok := typeMap[typ]; ok {
-			return val, true
-		}
+		return typeMap.Get(typ)
 	}
 	return nil, false
 }
