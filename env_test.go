@@ -1,6 +1,7 @@
 package ops_test
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -20,8 +21,7 @@ func TestMapEnv_Set(t *testing.T) {
 		typ     reflect.Type
 		tag     ops.Tag
 		val     ops.Val
-		wantErr bool
-		errMsg  string
+		wantErr error
 	}{
 		{
 			name: "valid set",
@@ -34,16 +34,14 @@ func TestMapEnv_Set(t *testing.T) {
 			typ:     nil,
 			tag:     "test_tag",
 			val:     "test_value",
-			wantErr: true,
-			errMsg:  "type cannot be nil",
+			wantErr: ops.ErrNilType,
 		},
 		{
 			name:    "nil tag",
 			typ:     reflect.TypeOf(""),
 			tag:     nil,
 			val:     "test_value",
-			wantErr: true,
-			errMsg:  "tag cannot be nil",
+			wantErr: ops.ErrNilTag,
 		},
 	}
 
@@ -51,12 +49,12 @@ func TestMapEnv_Set(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := ops.NewEnv()
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				defer func() {
 					if r := recover(); r != nil {
 						if err, ok := r.(error); ok {
-							if err.Error() != tt.errMsg {
-								t.Errorf("Expected error message %q, got %q", tt.errMsg, err.Error())
+							if !errors.Is(err, tt.wantErr) {
+								t.Errorf("Expected error %q, got %q", tt.wantErr, err)
 							}
 						} else {
 							t.Errorf("Expected error, got %v", r)
@@ -69,7 +67,7 @@ func TestMapEnv_Set(t *testing.T) {
 
 			env.Set(tt.typ, tt.tag, tt.val)
 
-			if !tt.wantErr {
+			if tt.wantErr == nil {
 				// Verify the value was set correctly
 				val, ok := env.Get(tt.typ, tt.tag)
 				if !ok {
@@ -88,8 +86,7 @@ func TestMapEnv_SetAll(t *testing.T) {
 		name    string
 		tag     ops.Tag
 		val     ops.Val
-		wantErr bool
-		errMsg  string
+		wantErr error
 	}{
 		{
 			name: "valid set all",
@@ -100,8 +97,7 @@ func TestMapEnv_SetAll(t *testing.T) {
 			name:    "nil tag",
 			tag:     nil,
 			val:     "test_value",
-			wantErr: true,
-			errMsg:  "tag cannot be nil",
+			wantErr: ops.ErrNilTag,
 		},
 	}
 
@@ -109,12 +105,12 @@ func TestMapEnv_SetAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := ops.NewEnv()
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				defer func() {
 					if r := recover(); r != nil {
 						if err, ok := r.(error); ok {
-							if err.Error() != tt.errMsg {
-								t.Errorf("Expected error message %q, got %q", tt.errMsg, err.Error())
+							if !errors.Is(err, tt.wantErr) {
+								t.Errorf("Expected error %q, got %q", tt.wantErr, err)
 							}
 						} else {
 							t.Errorf("Expected error, got %v", r)
@@ -127,7 +123,7 @@ func TestMapEnv_SetAll(t *testing.T) {
 
 			env.SetAll(tt.tag, tt.val)
 
-			if !tt.wantErr {
+			if tt.wantErr == nil {
 				// Verify the value is available for different types
 				stringType := reflect.TypeOf("")
 				intType := reflect.TypeOf(0)
@@ -157,8 +153,7 @@ func TestMapEnv_Get(t *testing.T) {
 		name    string
 		typ     reflect.Type
 		tag     ops.Tag
-		wantErr bool
-		errMsg  string
+		wantErr error
 		setupFn func(ops.Env)
 		wantVal ops.Val
 		wantOk  bool
@@ -197,15 +192,13 @@ func TestMapEnv_Get(t *testing.T) {
 			name:    "nil type",
 			typ:     nil,
 			tag:     "test_tag",
-			wantErr: true,
-			errMsg:  "type cannot be nil",
+			wantErr: ops.ErrNilType,
 		},
 		{
 			name:    "nil tag",
 			typ:     reflect.TypeOf(""),
 			tag:     nil,
-			wantErr: true,
-			errMsg:  "tag cannot be nil",
+			wantErr: ops.ErrNilTag,
 		},
 	}
 
@@ -217,12 +210,12 @@ func TestMapEnv_Get(t *testing.T) {
 				tt.setupFn(env)
 			}
 
-			if tt.wantErr {
+			if tt.wantErr != nil {
 				defer func() {
 					if r := recover(); r != nil {
 						if err, ok := r.(error); ok {
-							if err.Error() != tt.errMsg {
-								t.Errorf("Expected error message %q, got %q", tt.errMsg, err.Error())
+							if !errors.Is(err, tt.wantErr) {
+								t.Errorf("Expected error %q, got %q", tt.wantErr, err)
 							}
 						} else {
 							t.Errorf("Expected error, got %v", r)
@@ -235,7 +228,7 @@ func TestMapEnv_Get(t *testing.T) {
 
 			val, ok := env.Get(tt.typ, tt.tag)
 
-			if !tt.wantErr {
+			if tt.wantErr == nil {
 				if ok != tt.wantOk {
 					t.Errorf("Expected ok=%v, got ok=%v", tt.wantOk, ok)
 				}
