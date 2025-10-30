@@ -80,6 +80,41 @@ func (FmtDeep) Fmt(env Env, v reflect.Value) string {
 
 type fmtDefault struct{}
 
+func literalStringCan[T any](v reflect.Value, can func(reflect.Value) bool, f func(reflect.Value) T) string {
+	if !can(v) {
+		return FmtElide{}.Fmt(nil, v)
+	}
+	return literalString(v, f)
+}
+
+var directTypes = map[reflect.Type]struct{}{
+	reflect.TypeFor[bool]():       {},
+	reflect.TypeFor[int]():        {},
+	reflect.TypeFor[int8]():       {},
+	reflect.TypeFor[int16]():      {},
+	reflect.TypeFor[int32]():      {},
+	reflect.TypeFor[int64]():      {},
+	reflect.TypeFor[uint]():       {},
+	reflect.TypeFor[uint8]():      {},
+	reflect.TypeFor[uint16]():     {},
+	reflect.TypeFor[uint32]():     {},
+	reflect.TypeFor[uint64]():     {},
+	reflect.TypeFor[uintptr]():    {},
+	reflect.TypeFor[float32]():    {},
+	reflect.TypeFor[float64]():    {},
+	reflect.TypeFor[complex64]():  {},
+	reflect.TypeFor[complex128](): {},
+	reflect.TypeFor[string]():     {},
+}
+
+func literalString[T any](v reflect.Value, f func(reflect.Value) T) string {
+	if _, ok := directTypes[v.Type()]; ok {
+		return fmt.Sprintf("%#v", f(v))
+	} else {
+		return fmt.Sprintf("%s(%#v)", typeName(v.Type()), f(v))
+	}
+}
+
 func (fmtDefault) Fmt(env Env, v reflect.Value) string {
 	switch v.Kind() {
 	case reflect.Struct:
@@ -93,29 +128,17 @@ func (fmtDefault) Fmt(env Env, v reflect.Value) string {
 	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		return FmtElide{}.Fmt(env, v)
 	case reflect.Complex128, reflect.Complex64:
-		if !v.CanComplex() {
-			return FmtElide{}.Fmt(env, v)
-		}
-		return fmt.Sprintf("%#v", v.Complex())
+		return literalStringCan(v, reflect.Value.CanComplex, reflect.Value.Complex)
 	case reflect.Float32, reflect.Float64:
-		if !v.CanFloat() {
-			return FmtElide{}.Fmt(env, v)
-		}
-		return fmt.Sprintf("%#v", v.Float())
+		return literalStringCan(v, reflect.Value.CanFloat, reflect.Value.Float)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		if !v.CanInt() {
-			return FmtElide{}.Fmt(env, v)
-		}
-		return fmt.Sprintf("%#v", v.Int())
+		return literalStringCan(v, reflect.Value.CanInt, reflect.Value.Int)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		if !v.CanUint() {
-			return FmtElide{}.Fmt(env, v)
-		}
-		return fmt.Sprintf("%#v", v.Uint())
+		return literalStringCan(v, reflect.Value.CanUint, reflect.Value.Uint)
 	case reflect.Bool:
-		return fmt.Sprintf("%#v", v.Bool())
+		return literalString(v, reflect.Value.Bool)
 	case reflect.String:
-		return fmt.Sprintf("%#v", v.String())
+		return literalString(v, reflect.Value.String)
 	case reflect.Interface:
 		return FmtInterface{}.Fmt(env, v)
 	default:

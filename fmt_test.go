@@ -96,7 +96,7 @@ func TestFmtFor(t *testing.T) {
 					var s fmt.Stringer = testInt(7)
 					return ops.FmtFor(nil, s)
 				},
-				want: "fmt.Stringer(7)",
+				want: "fmt.Stringer(ops_test.testInt(7))",
 			},
 			{
 				name: "Func",
