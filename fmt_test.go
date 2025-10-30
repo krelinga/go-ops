@@ -210,6 +210,14 @@ func TestFmtFor(t *testing.T) {
 				},
 				want: `&"hello"`,  // TODO: I don't like the way this looks.
 			},
+			{
+				name: "Uintptr",
+				f: func() string {
+					var up uintptr = 0x1234abcd
+					return ops.FmtFor(nil, up)
+				},
+				want: "0x1234abcd",
+			},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
