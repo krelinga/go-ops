@@ -3,6 +3,7 @@ package ops
 import (
 	"reflect"
 	"strings"
+	"unsafe"
 )
 
 func indent(s string) string {
@@ -24,4 +25,17 @@ func ValueFor[T any](in T) reflect.Value {
 		v = newV
 	}
 	return v
+}
+
+func typeName(t reflect.Type) string {
+	if t == reflect.TypeFor[any]() {
+		return "any"
+	}
+	if t == reflect.TypeFor[unsafe.Pointer]() {
+		return "unsafe.Pointer"
+	}
+	if name := t.Name(); name != "" {
+		return name
+	}
+	return t.String()
 }

@@ -20,8 +20,8 @@ func (ff FmtFunc) Fmt(env Env, v reflect.Value) string {
 
 type FmtElide struct{}
 
-func (FmtElide) Fmt(_ Env, _ reflect.Value) string {
-	return "..."
+func (FmtElide) Fmt(_ Env, v reflect.Value) string {
+	return fmt.Sprintf("%s(...)", typeName(v.Type()))
 }
 
 func Fmt(env Env, v reflect.Value) string {
@@ -151,7 +151,7 @@ func (sf FmtStruct) Fmt(env Env, v reflect.Value) string {
 		var name string
 		if f.Anonymous {
 			key = EmbedField(f.Type)
-			name = f.Type.Name()
+			name = typeName(f.Type)
 		} else {
 			key = NamedField(f.Name)
 			name = f.Name
@@ -169,7 +169,7 @@ func (sf FmtStruct) Fmt(env Env, v reflect.Value) string {
 	for i := range fieldStrings {
 		fieldStrings[i] = indent(fieldStrings[i])
 	}
-	return fmt.Sprintf("%s {\n%s\n}", t.Name(), strings.Join(fieldStrings, "\n"))
+	return fmt.Sprintf("%s{\n%s\n}", typeName(t), strings.Join(fieldStrings, "\n"))
 }
 
 type FmtMap struct {
@@ -201,7 +201,7 @@ func (mf FmtMap) Fmt(env Env, v reflect.Value) string {
 	for i := range entryStrings {
 		entryStrings[i] = indent(entryStrings[i])
 	}
-	return fmt.Sprintf("%s{\n%s\n}", t.Name(), strings.Join(entryStrings, "\n"))
+	return fmt.Sprintf("%s{\n%s\n}", typeName(t), strings.Join(entryStrings, "\n"))
 }
 
 type FmtSlice struct {
@@ -229,7 +229,7 @@ func (sf FmtSlice) Fmt(env Env, v reflect.Value) string {
 	for i := range elementStrings {
 		elementStrings[i] = indent(elementStrings[i])
 	}
-	return fmt.Sprintf("%s{\n%s\n}", t.Name(), strings.Join(elementStrings, "\n"))
+	return fmt.Sprintf("%s{\n%s\n}", t, strings.Join(elementStrings, "\n"))
 }
 
 type FmtPointer struct {
@@ -272,7 +272,7 @@ func (fmtI FmtInterface) Fmt(env Env, v reflect.Value) string {
 		elem := v.Elem()
 		elemStr = elementFmter.Fmt(env, elem)
 	}
-	return fmt.Sprintf("%s(%s)", t.Name(), elemStr)
+	return fmt.Sprintf("%s(%s)", typeName(t), elemStr)
 }
 
 type FmtWrap struct {
