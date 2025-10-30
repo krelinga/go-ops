@@ -50,6 +50,28 @@ func FmtFor[T any](env Env, in T) string {
 	return Fmt(env, v)
 }
 
+func TryFmt(env Env, v reflect.Value) (string, error) {
+	var str string
+	err := try(func() {
+		str = Fmt(env, v)
+	})
+	if err != nil {
+		return "", err
+	}
+	return str, nil
+}
+
+func TryFmtFor[T any](env Env, in T) (string, error) {
+	var str string
+	err := try(func() {
+		str = FmtFor(env, in)
+	})
+	if err != nil {
+		return "", err
+	}
+	return str, nil
+}
+
 type FmtDeep struct{}
 
 func (FmtDeep) Fmt(env Env, v reflect.Value) string {
