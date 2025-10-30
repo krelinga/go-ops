@@ -97,7 +97,7 @@ func (fmtDefault) Fmt(env Env, v reflect.Value) string {
 	case reflect.Interface:
 		return FmtInterface{}.Fmt(env, v)
 	default:
-		panic(fmt.Sprintf("unsupported kind %v for value %v", v.Kind(), v))
+		panic(fmt.Errorf("%w: unsupported kind %v for value %v", ErrInternal, v.Kind(), v))
 	}
 }
 
