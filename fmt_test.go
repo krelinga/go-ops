@@ -1,11 +1,18 @@
 package ops_test
 
 import (
+	"fmt"
 	"testing"
 	"unsafe"
 
 	"github.com/krelinga/go-ops"
 )
+
+type testInt int
+
+func (ti testInt) String() string {
+	return fmt.Sprintf("testInt of %d", int(ti))
+}
 
 func TestFmtFor(t *testing.T) {
 	t.Run("Defaults", func(t *testing.T) {
@@ -74,6 +81,22 @@ func TestFmtFor(t *testing.T) {
 					return ops.FmtFor(nil, i)
 				},
 				want: "interface { Foo() }(nil)",
+			},
+			{
+				name: "Nil Stringer Interface",
+				f: func() string {
+					var s fmt.Stringer
+					return ops.FmtFor(nil, s)
+				},
+				want: "fmt.Stringer(nil)",
+			},
+			{
+				name: "Custom Stringer",
+				f: func() string {
+					var s fmt.Stringer = testInt(7)
+					return ops.FmtFor(nil, s)
+				},
+				want: "fmt.Stringer(7)",
 			},
 			{
 				name: "Func",
@@ -159,7 +182,7 @@ func TestFmtFor(t *testing.T) {
 					p := Person{Name: "Alice", Age: 30}
 					return ops.FmtFor(nil, p)
 				},
-				want: `Person{
+				want: `ops_test.Person{
   Name: "Alice",
   Age: 30,
 }`,
@@ -173,7 +196,7 @@ func TestFmtFor(t *testing.T) {
 					p := &Point{X: 10, Y: 20}
 					return ops.FmtFor(nil, p)
 				},
-				want: `&Point{
+				want: `&ops_test.Point{
   X: 10,
   Y: 20,
 }`,
