@@ -2,6 +2,7 @@ package ops_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"unsafe"
 
@@ -222,6 +223,51 @@ func TestFmtFor(t *testing.T) {
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				got := tt.f()
+				if got != tt.want {
+					t.Errorf("got %q, want %q", got, tt.want)
+				}
+			})
+		}
+	})
+
+	t.Run("With FmtStruct", func(t *testing.T) {
+		type Person struct {
+			Name string
+			Age  int
+		}
+		p := Person{Name: "Bob", Age: 25}
+		type Animal struct {
+			Species string
+			OwnedBy *Person
+			isGood bool
+		}
+		a := Animal{Species: "Dog", OwnedBy: &p, isGood: true}
+		tests := []struct {
+			name string
+			opt  ops.Opt
+			want string
+		}{
+			{
+				name: "Elide A Field",
+				opt: ops.FmtOpt(reflect.TypeFor[Person](), ops.FmtStruct{
+					Fields: map[ops.Field]ops.Fmter{
+						ops.NamedField("Age"): ops.FmtElide{},
+					},
+				}),
+				want: `ops_test.Animal{
+  Species: "Dog",
+  OwnedBy: &ops_test.Person{
+    Name: "Bob",
+    Age: int(...),
+  },
+  ...
+}`,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				env := ops.WrapEnv(ops.NewEnv(), tt.opt)
+				got := ops.FmtFor(env, a)
 				if got != tt.want {
 					t.Errorf("got %q, want %q", got, tt.want)
 				}
