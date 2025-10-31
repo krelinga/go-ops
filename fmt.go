@@ -8,7 +8,7 @@ import (
 
 type fmtTag struct{}
 
-type Fmter interface {
+type Fmt interface {
 	Fmt(Env, reflect.Value) string
 }
 
@@ -24,11 +24,11 @@ func (FmtElide) Fmt(_ Env, v reflect.Value) string {
 	return fmt.Sprintf("%s(...)", typeName(v.Type()))
 }
 
-func Fmt(env Env, v reflect.Value) string {
+func Format(env Env, v reflect.Value) string {
 	if !v.IsValid() {
 		return "<invalid>"
 	}
-	fmter := func() Fmter {
+	fmter := func() Fmt {
 		if env == nil {
 			return fmtDefault{}
 		}
@@ -36,7 +36,7 @@ func Fmt(env Env, v reflect.Value) string {
 		if !ok {
 			return fmtDefault{}
 		}
-		fmter := anyVal.(Fmter)
+		fmter := anyVal.(Fmt)
 		if fmter == nil {
 			return fmtDefault{}
 		}
@@ -45,15 +45,15 @@ func Fmt(env Env, v reflect.Value) string {
 	return fmter.Fmt(env, v)
 }
 
-func FmtFor[T any](env Env, in T) string {
+func FormatFor[T any](env Env, in T) string {
 	v := ValueFor(in)
-	return Fmt(env, v)
+	return Format(env, v)
 }
 
-func TryFmt(env Env, v reflect.Value) (string, error) {
+func TryFormat(env Env, v reflect.Value) (string, error) {
 	var str string
 	err := try(func() {
-		str = Fmt(env, v)
+		str = Format(env, v)
 	})
 	if err != nil {
 		return "", err
@@ -61,10 +61,10 @@ func TryFmt(env Env, v reflect.Value) (string, error) {
 	return str, nil
 }
 
-func TryFmtFor[T any](env Env, in T) (string, error) {
+func TryFormatFor[T any](env Env, in T) (string, error) {
 	var str string
 	err := try(func() {
-		str = FmtFor(env, in)
+		str = FormatFor(env, in)
 	})
 	if err != nil {
 		return "", err
@@ -75,7 +75,7 @@ func TryFmtFor[T any](env Env, in T) (string, error) {
 type FmtDeep struct{}
 
 func (FmtDeep) Fmt(env Env, v reflect.Value) string {
-	return Fmt(env, v)
+	return Format(env, v)
 }
 
 type fmtDefault struct{}
@@ -147,7 +147,7 @@ func (fmtDefault) Fmt(env Env, v reflect.Value) string {
 }
 
 type FmtStruct struct {
-	Fields map[Field]Fmter
+	Fields map[Field]Fmt
 	// TODO: possibly add an option to include unexported fields?
 }
 
@@ -196,8 +196,8 @@ func (sf FmtStruct) Fmt(env Env, v reflect.Value) string {
 }
 
 type FmtMap struct {
-	Keys Fmter
-	Vals Fmter
+	Keys Fmt
+	Vals Fmt
 	// TODO: possibly add an option to limit number of entries?  or to elide certain keys?
 }
 
@@ -228,7 +228,7 @@ func (mf FmtMap) Fmt(env Env, v reflect.Value) string {
 }
 
 type FmtSlice struct {
-	Elems Fmter
+	Elems Fmt
 	// TODO: possibly add an option to limit number of elements?
 }
 
@@ -256,7 +256,7 @@ func (sf FmtSlice) Fmt(env Env, v reflect.Value) string {
 }
 
 type FmtPointer struct {
-	Elem Fmter
+	Elem Fmt
 }
 
 func (pf FmtPointer) Fmt(env Env, v reflect.Value) string {
@@ -276,7 +276,7 @@ func (pf FmtPointer) Fmt(env Env, v reflect.Value) string {
 }
 
 type FmtInterface struct {
-	Elem Fmter
+	Elem Fmt
 }
 
 func (fmtI FmtInterface) Fmt(env Env, v reflect.Value) string {
@@ -300,7 +300,7 @@ func (fmtI FmtInterface) Fmt(env Env, v reflect.Value) string {
 
 type FmtWrap struct {
 	Opt  Opt
-	Then Fmter
+	Then Fmt
 }
 
 func (fw FmtWrap) Fmt(env Env, v reflect.Value) string {
@@ -328,13 +328,13 @@ func (FmtStringer) Fmt(_ Env, v reflect.Value) string {
 	return str.String()
 }
 
-func FmtOpt(typ reflect.Type, fmter Fmter) Opt {
+func FmtOpt(typ reflect.Type, fmter Fmt) Opt {
 	return OptFunc(func(e Env) {
 		e.Set(typ, fmtTag{}, fmter)
 	})
 }
 
-func FmtOptAll(fmter Fmter) Opt {
+func FmtOptAll(fmter Fmt) Opt {
 	return OptFunc(func(e Env) {
 		e.SetAll(fmtTag{}, fmter)
 	})
