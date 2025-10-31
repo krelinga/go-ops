@@ -8,6 +8,7 @@ var (
 	ErrNilField  = errors.New("field cannot be nil")
 	ErrWrongType = errors.New("value has wrong type")
 	ErrInternal  = errors.New("internal error")
+	ErrInvalid   = errors.New("invalid value")
 )
 
 func try(f func()) (err error) {
@@ -18,7 +19,8 @@ func try(f func()) (err error) {
 					errors.Is(recErr, ErrNilTag) ||
 					errors.Is(recErr, ErrNilField) ||
 					errors.Is(recErr, ErrWrongType) ||
-					errors.Is(recErr, ErrInternal) {
+					errors.Is(recErr, ErrInternal) ||
+					errors.Is(recErr, ErrInvalid) {
 					err = recErr
 					return
 				}
