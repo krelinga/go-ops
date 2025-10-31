@@ -11,7 +11,7 @@ type Eq interface {
 
 type eqTag struct{}
 
-func Equal(env Env, v1, v2 reflect.Value) bool {
+func EqualVals(env Env, v1, v2 reflect.Value) bool {
 	if !v1.IsValid() || !v2.IsValid() {
 		panic(ErrInvalid)
 	}
@@ -36,16 +36,16 @@ func Equal(env Env, v1, v2 reflect.Value) bool {
 	return impl.Eq(env, v1, v2)
 }
 
-func EqualFor[T any](env Env, in1, in2 T) bool {
+func Equal[T any](env Env, in1, in2 T) bool {
 	v1 := ValueFor(in1)
 	v2 := ValueFor(in2)
-	return Equal(env, v1, v2)
+	return EqualVals(env, v1, v2)
 }
 
-func TryEqual(env Env, v1, v2 reflect.Value) (bool, error) {
+func TryEqualVals(env Env, v1, v2 reflect.Value) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = Equal(env, v1, v2)
+		result = EqualVals(env, v1, v2)
 	})
 	if err != nil {
 		return false, err
@@ -53,10 +53,10 @@ func TryEqual(env Env, v1, v2 reflect.Value) (bool, error) {
 	return result, nil
 }
 
-func TryEqualFor[T any](env Env, in1, in2 T) (bool, error) {
+func TryEqual[T any](env Env, in1, in2 T) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = EqualFor(env, in1, in2)
+		result = Equal(env, in1, in2)
 	})
 	if err != nil {
 		return false, err
@@ -111,7 +111,7 @@ func (EqTrue) Eq(_ Env, _, _ reflect.Value) bool {
 type EqDeep struct{}
 
 func (EqDeep) Eq(env Env, v1, v2 reflect.Value) bool {
-	return Equal(env, v1, v2)
+	return EqualVals(env, v1, v2)
 }
 
 type EqPointer struct {
