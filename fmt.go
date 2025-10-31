@@ -24,7 +24,7 @@ func (FmtElide) Fmt(_ Env, v reflect.Value) string {
 	return fmt.Sprintf("%s(...)", typeName(v.Type()))
 }
 
-func Format(env Env, v reflect.Value) string {
+func FormatVal(env Env, v reflect.Value) string {
 	if !v.IsValid() {
 		return "<invalid>"
 	}
@@ -45,15 +45,15 @@ func Format(env Env, v reflect.Value) string {
 	return impl.Fmt(env, v)
 }
 
-func FormatFor[T any](env Env, in T) string {
+func Format[T any](env Env, in T) string {
 	v := ValueFor(in)
-	return Format(env, v)
+	return FormatVal(env, v)
 }
 
-func TryFormat(env Env, v reflect.Value) (string, error) {
+func TryFormatVals(env Env, v reflect.Value) (string, error) {
 	var str string
 	err := try(func() {
-		str = Format(env, v)
+		str = FormatVal(env, v)
 	})
 	if err != nil {
 		return "", err
@@ -61,10 +61,10 @@ func TryFormat(env Env, v reflect.Value) (string, error) {
 	return str, nil
 }
 
-func TryFormatFor[T any](env Env, in T) (string, error) {
+func TryFormat[T any](env Env, in T) (string, error) {
 	var str string
 	err := try(func() {
-		str = FormatFor(env, in)
+		str = Format(env, in)
 	})
 	if err != nil {
 		return "", err
@@ -75,7 +75,7 @@ func TryFormatFor[T any](env Env, in T) (string, error) {
 type FmtDeep struct{}
 
 func (FmtDeep) Fmt(env Env, v reflect.Value) string {
-	return Format(env, v)
+	return FormatVal(env, v)
 }
 
 type fmtDefault struct{}
