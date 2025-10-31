@@ -5,13 +5,13 @@ import (
 	"reflect"
 )
 
-type Eqer interface {
+type Eq interface {
 	Eq(Env, reflect.Value, reflect.Value) bool
 }
 
-type EqTag struct{}
+type eqTag struct{}
 
-func Eq(env Env, v1, v2 reflect.Value) bool {
+func Equal(env Env, v1, v2 reflect.Value) bool {
 	if !v1.IsValid() || !v2.IsValid() {
 		panic(ErrInvalid)
 	}
@@ -19,15 +19,15 @@ func Eq(env Env, v1, v2 reflect.Value) bool {
 	if typ != v2.Type() {
 		panic(ErrWrongType)
 	}
-	Eqer := func() Eqer {
+	Eqer := func() Eq {
 		if env == nil {
 			return EqDefault{}
 		}
-		anyVal, ok := env.Get(typ, EqTag{})
+		anyVal, ok := env.Get(typ, eqTag{})
 		if !ok {
 			return EqDefault{}
 		}
-		Eqer := anyVal.(Eqer)
+		Eqer := anyVal.(Eq)
 		if Eqer == nil {
 			return EqDefault{}
 		}
@@ -36,16 +36,16 @@ func Eq(env Env, v1, v2 reflect.Value) bool {
 	return Eqer.Eq(env, v1, v2)
 }
 
-func EqFor[T any](env Env, in1, in2 T) bool {
+func EqualFor[T any](env Env, in1, in2 T) bool {
 	v1 := ValueFor(in1)
 	v2 := ValueFor(in2)
-	return Eq(env, v1, v2)
+	return Equal(env, v1, v2)
 }
 
-func TryEq(env Env, v1, v2 reflect.Value) (bool, error) {
+func TryEqual(env Env, v1, v2 reflect.Value) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = Eq(env, v1, v2)
+		result = Equal(env, v1, v2)
 	})
 	if err != nil {
 		return false, err
@@ -53,10 +53,10 @@ func TryEq(env Env, v1, v2 reflect.Value) (bool, error) {
 	return result, nil
 }
 
-func TryEqFor[T any](env Env, in1, in2 T) (bool, error) {
+func TryEqualFor[T any](env Env, in1, in2 T) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = EqFor(env, in1, in2)
+		result = EqualFor(env, in1, in2)
 	})
 	if err != nil {
 		return false, err
@@ -111,11 +111,11 @@ func (EqTrue) Eq(_ Env, _, _ reflect.Value) bool {
 type EqDeep struct{}
 
 func (EqDeep) Eq(env Env, v1, v2 reflect.Value) bool {
-	return Eq(env, v1, v2)
+	return Equal(env, v1, v2)
 }
 
 type EqPointer struct {
-	Elem   Eqer
+	Elem   Eq
 	ByAddr bool
 }
 
@@ -137,7 +137,7 @@ func (cp EqPointer) Eq(env Env, v1, v2 reflect.Value) bool {
 }
 
 type EqInterface struct {
-	Elem Eqer
+	Elem Eq
 }
 
 func (ci EqInterface) Eq(env Env, v1, v2 reflect.Value) bool {
@@ -160,7 +160,7 @@ func (ci EqInterface) Eq(env Env, v1, v2 reflect.Value) bool {
 }
 
 type EqStruct struct {
-	Fields map[Field]Eqer
+	Fields map[Field]Eq
 }
 
 func (cs EqStruct) Eq(env Env, v1, v2 reflect.Value) bool {
@@ -199,7 +199,7 @@ func (cs EqStruct) Eq(env Env, v1, v2 reflect.Value) bool {
 }
 
 type EqSlice struct {
-	Elems Eqer
+	Elems Eq
 	// TODO: support unordered comparison?
 }
 
@@ -231,8 +231,8 @@ func (cs EqSlice) Eq(env Env, v1, v2 reflect.Value) bool {
 }
 
 type EqMap struct {
-	Keys Eqer
-	Vals Eqer
+	Keys Eq
+	Vals Eq
 }
 
 func (cm EqMap) Eq(env Env, v1, v2 reflect.Value) bool {
@@ -287,14 +287,14 @@ k2loop:
 	return true
 }
 
-func EqOpt(t reflect.Type, Eqer Eqer) Opt {
+func EqOpt(t reflect.Type, Eqer Eq) Opt {
 	return OptFunc(func(env Env) {
-		env.Set(t, EqTag{}, Eqer)
+		env.Set(t, eqTag{}, Eqer)
 	})
 }
 
-func EqOptAll(Eqer Eqer) Opt {
+func EqOptAll(Eqer Eq) Opt {
 	return OptFunc(func(env Env) {
-		env.SetAll(EqTag{}, Eqer)
+		env.SetAll(eqTag{}, Eqer)
 	})
 }
