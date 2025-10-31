@@ -28,7 +28,7 @@ func Format(env Env, v reflect.Value) string {
 	if !v.IsValid() {
 		return "<invalid>"
 	}
-	fmter := func() Fmt {
+	impl := func() Fmt {
 		if env == nil {
 			return fmtDefault{}
 		}
@@ -36,13 +36,13 @@ func Format(env Env, v reflect.Value) string {
 		if !ok {
 			return fmtDefault{}
 		}
-		fmter := anyVal.(Fmt)
-		if fmter == nil {
+		impl := anyVal.(Fmt)
+		if impl == nil {
 			return fmtDefault{}
 		}
-		return fmter
+		return impl
 	}()
-	return fmter.Fmt(env, v)
+	return impl.Fmt(env, v)
 }
 
 func FormatFor[T any](env Env, in T) string {
@@ -179,12 +179,12 @@ func (sf FmtStruct) Fmt(env Env, v reflect.Value) string {
 			key = NamedField(f.Name)
 			name = f.Name
 		}
-		fmter, ok := sf.Fields[key]
-		if !ok || fmter == nil {
-			fmter = FmtDeep{}
+		impl, ok := sf.Fields[key]
+		if !ok || impl == nil {
+			impl = FmtDeep{}
 		}
 		val := v.Field(fNum)
-		fieldStrings = append(fieldStrings, fmt.Sprintf("%s: %s,", name, fmter.Fmt(env, val)))
+		fieldStrings = append(fieldStrings, fmt.Sprintf("%s: %s,", name, impl.Fmt(env, val)))
 	}
 	if filtered {
 		fieldStrings = append(fieldStrings, "...")
@@ -206,20 +206,20 @@ func (mf FmtMap) Fmt(env Env, v reflect.Value) string {
 	if t.Kind() != reflect.Map {
 		panic(ErrWrongType)
 	}
-	keyFmter := mf.Keys
-	if keyFmter == nil {
-		keyFmter = FmtDeep{}
+	keys := mf.Keys
+	if keys == nil {
+		keys = FmtDeep{}
 	}
-	valueFmter := mf.Vals
-	if valueFmter == nil {
-		valueFmter = FmtDeep{}
+	vals := mf.Vals
+	if vals == nil {
+		vals = FmtDeep{}
 	}
 	entryStrings := make([]string, 0, v.Len())
 	i := v.MapRange()
 	for i.Next() {
 		k := i.Key()
 		val := i.Value()
-		entryStrings = append(entryStrings, fmt.Sprintf("%s: %s,", keyFmter.Fmt(env, k), valueFmter.Fmt(env, val)))
+		entryStrings = append(entryStrings, fmt.Sprintf("%s: %s,", keys.Fmt(env, k), vals.Fmt(env, val)))
 	}
 	for i := range entryStrings {
 		entryStrings[i] = indent(entryStrings[i])
@@ -240,14 +240,14 @@ func (sf FmtSlice) Fmt(env Env, v reflect.Value) string {
 	default:
 		panic(ErrWrongType)
 	}
-	elementFmter := sf.Elems
-	if elementFmter == nil {
-		elementFmter = FmtDeep{}
+	elems := sf.Elems
+	if elems == nil {
+		elems = FmtDeep{}
 	}
 	elementStrings := make([]string, 0, v.Len())
 	for i := range v.Len() {
 		elem := v.Index(i)
-		elementStrings = append(elementStrings, fmt.Sprintf("%s,", elementFmter.Fmt(env, elem)))
+		elementStrings = append(elementStrings, fmt.Sprintf("%s,", elems.Fmt(env, elem)))
 	}
 	for i := range elementStrings {
 		elementStrings[i] = indent(elementStrings[i])
@@ -267,12 +267,12 @@ func (pf FmtPointer) Fmt(env Env, v reflect.Value) string {
 	if v.IsNil() {
 		return "<nil>"
 	}
-	elementFmter := pf.Elem
-	if elementFmter == nil {
-		elementFmter = FmtDeep{}
+	impl := pf.Elem
+	if impl == nil {
+		impl = FmtDeep{}
 	}
 	elem := v.Elem()
-	return fmt.Sprintf("&%s", elementFmter.Fmt(env, elem))
+	return fmt.Sprintf("&%s", impl.Fmt(env, elem))
 }
 
 type FmtInterface struct {
@@ -288,12 +288,12 @@ func (fmtI FmtInterface) Fmt(env Env, v reflect.Value) string {
 	if v.IsNil() {
 		elemStr = "nil"
 	} else {
-		elementFmter := fmtI.Elem
-		if elementFmter == nil {
-			elementFmter = FmtDeep{}
+		impl := fmtI.Elem
+		if impl == nil {
+			impl = FmtDeep{}
 		}
 		elem := v.Elem()
-		elemStr = elementFmter.Fmt(env, elem)
+		elemStr = impl.Fmt(env, elem)
 	}
 	return fmt.Sprintf("%s(%s)", typeName(t), elemStr)
 }
@@ -328,15 +328,15 @@ func (FmtStringer) Fmt(_ Env, v reflect.Value) string {
 	return str.String()
 }
 
-func FmtOpt(typ reflect.Type, fmter Fmt) Opt {
+func FmtOpt(typ reflect.Type, fmt Fmt) Opt {
 	return OptFunc(func(e Env) {
-		e.Set(typ, fmtTag{}, fmter)
+		e.Set(typ, fmtTag{}, fmt)
 	})
 }
 
-func FmtOptAll(fmter Fmt) Opt {
+func FmtOptAll(fmt Fmt) Opt {
 	return OptFunc(func(e Env) {
-		e.SetAll(fmtTag{}, fmter)
+		e.SetAll(fmtTag{}, fmt)
 	})
 }
 

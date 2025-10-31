@@ -19,7 +19,7 @@ func Equal(env Env, v1, v2 reflect.Value) bool {
 	if typ != v2.Type() {
 		panic(ErrWrongType)
 	}
-	Eqer := func() Eq {
+	impl := func() Eq {
 		if env == nil {
 			return EqDefault{}
 		}
@@ -27,13 +27,13 @@ func Equal(env Env, v1, v2 reflect.Value) bool {
 		if !ok {
 			return EqDefault{}
 		}
-		Eqer := anyVal.(Eq)
-		if Eqer == nil {
+		impl := anyVal.(Eq)
+		if impl == nil {
 			return EqDefault{}
 		}
-		return Eqer
+		return impl
 	}()
-	return Eqer.Eq(env, v1, v2)
+	return impl.Eq(env, v1, v2)
 }
 
 func EqualFor[T any](env Env, in1, in2 T) bool {
@@ -185,13 +185,13 @@ func (cs EqStruct) Eq(env Env, v1, v2 reflect.Value) bool {
 		} else {
 			key = NamedField(f.Name)
 		}
-		Eqer, ok := cs.Fields[key]
-		if !ok || Eqer == nil {
-			Eqer = EqDeep{}
+		impl, ok := cs.Fields[key]
+		if !ok || impl == nil {
+			impl = EqDeep{}
 		}
 		val1 := v1.Field(fNum)
 		val2 := v2.Field(fNum)
-		if !Eqer.Eq(env, val1, val2) {
+		if !impl.Eq(env, val1, val2) {
 			return false
 		}
 	}
@@ -287,14 +287,14 @@ k2loop:
 	return true
 }
 
-func EqOpt(t reflect.Type, Eqer Eq) Opt {
+func EqOpt(t reflect.Type, eq Eq) Opt {
 	return OptFunc(func(env Env) {
-		env.Set(t, eqTag{}, Eqer)
+		env.Set(t, eqTag{}, eq)
 	})
 }
 
-func EqOptAll(Eqer Eq) Opt {
+func EqOptAll(eq Eq) Opt {
 	return OptFunc(func(env Env) {
-		env.SetAll(eqTag{}, Eqer)
+		env.SetAll(eqTag{}, eq)
 	})
 }
