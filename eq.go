@@ -5,13 +5,13 @@ import (
 	"reflect"
 )
 
-type Cmper interface {
-	Cmp(Env, reflect.Value, reflect.Value) bool
+type Eqer interface {
+	Eq(Env, reflect.Value, reflect.Value) bool
 }
 
-type cmpTag struct{}
+type EqTag struct{}
 
-func Cmp(env Env, v1, v2 reflect.Value) bool {
+func Eq(env Env, v1, v2 reflect.Value) bool {
 	if !v1.IsValid() || !v2.IsValid() {
 		panic(ErrInvalid)
 	}
@@ -19,33 +19,33 @@ func Cmp(env Env, v1, v2 reflect.Value) bool {
 	if typ != v2.Type() {
 		panic(ErrWrongType)
 	}
-	cmper := func() Cmper {
+	Eqer := func() Eqer {
 		if env == nil {
-			return cmpDefault{}
+			return EqDefault{}
 		}
-		anyVal, ok := env.Get(typ, cmpTag{})
+		anyVal, ok := env.Get(typ, EqTag{})
 		if !ok {
-			return cmpDefault{}
+			return EqDefault{}
 		}
-		cmper := anyVal.(Cmper)
-		if cmper == nil {
-			return cmpDefault{}
+		Eqer := anyVal.(Eqer)
+		if Eqer == nil {
+			return EqDefault{}
 		}
-		return cmper
+		return Eqer
 	}()
-	return cmper.Cmp(env, v1, v2)
+	return Eqer.Eq(env, v1, v2)
 }
 
-func CmpFor[T any](env Env, in1, in2 T) bool {
+func EqFor[T any](env Env, in1, in2 T) bool {
 	v1 := ValueFor(in1)
 	v2 := ValueFor(in2)
-	return Cmp(env, v1, v2)
+	return Eq(env, v1, v2)
 }
 
-func TryCmp(env Env, v1, v2 reflect.Value) (bool, error) {
+func TryEq(env Env, v1, v2 reflect.Value) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = Cmp(env, v1, v2)
+		result = Eq(env, v1, v2)
 	})
 	if err != nil {
 		return false, err
@@ -53,10 +53,10 @@ func TryCmp(env Env, v1, v2 reflect.Value) (bool, error) {
 	return result, nil
 }
 
-func TryCmpFor[T any](env Env, in1, in2 T) (bool, error) {
+func TryEqFor[T any](env Env, in1, in2 T) (bool, error) {
 	var result bool
 	err := try(func() {
-		result = CmpFor(env, in1, in2)
+		result = EqFor(env, in1, in2)
 	})
 	if err != nil {
 		return false, err
@@ -64,19 +64,19 @@ func TryCmpFor[T any](env Env, in1, in2 T) (bool, error) {
 	return result, nil
 }
 
-type cmpDefault struct{}
+type EqDefault struct{}
 
-func (cmpDefault) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (EqDefault) Eq(env Env, v1, v2 reflect.Value) bool {
 	t := v1.Type()
 	switch t.Kind() {
 	case reflect.Struct:
-		return CmpStruct{}.Cmp(env, v1, v2)
+		return EqStruct{}.Eq(env, v1, v2)
 	case reflect.Map:
-		return CmpMap{}.Cmp(env, v1, v2)
+		return EqMap{}.Eq(env, v1, v2)
 	case reflect.Slice, reflect.Array:
-		return CmpSlice{}.Cmp(env, v1, v2)
+		return EqSlice{}.Eq(env, v1, v2)
 	case reflect.Ptr:
-		return CmpPointer{}.Cmp(env, v1, v2)
+		return EqPointer{}.Eq(env, v1, v2)
 	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
 		// TODO: consider at least allowing both to be nil?
 		panic(fmt.Errorf("%w: cannot compare type %s", ErrInvalid, typeName(t)))
@@ -90,36 +90,36 @@ func (cmpDefault) Cmp(env Env, v1, v2 reflect.Value) bool {
 		}
 		return v1.Interface() == v2.Interface()
 	case reflect.Interface:
-		return CmpInterface{}.Cmp(env, v1, v2)
+		return EqInterface{}.Eq(env, v1, v2)
 	default:
 		panic(fmt.Errorf("%w: unsupported kind %v for value %v", ErrInternal, t.Kind(), v1))
 	}
 }
 
-type CmpOptFunc func(Env, reflect.Value, reflect.Value) bool
+type EqOptFunc func(Env, reflect.Value, reflect.Value) bool
 
-func (f CmpOptFunc) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (f EqOptFunc) Eq(env Env, v1, v2 reflect.Value) bool {
 	return f(env, v1, v2)
 }
 
-type CmpTrue struct{}
+type EqTrue struct{}
 
-func (CmpTrue) Cmp(_ Env, _, _ reflect.Value) bool {
+func (EqTrue) Eq(_ Env, _, _ reflect.Value) bool {
 	return true
 }
 
-type CmpDeep struct{}
+type EqDeep struct{}
 
-func (CmpDeep) Cmp(env Env, v1, v2 reflect.Value) bool {
-	return Cmp(env, v1, v2)
+func (EqDeep) Eq(env Env, v1, v2 reflect.Value) bool {
+	return Eq(env, v1, v2)
 }
 
-type CmpPointer struct {
-	Elem   Cmper
+type EqPointer struct {
+	Elem   Eqer
 	ByAddr bool
 }
 
-func (cp CmpPointer) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (cp EqPointer) Eq(env Env, v1, v2 reflect.Value) bool {
 	if v1.Kind() != reflect.Ptr {
 		panic(ErrWrongType)
 	}
@@ -131,16 +131,16 @@ func (cp CmpPointer) Cmp(env Env, v1, v2 reflect.Value) bool {
 	}
 	elem := cp.Elem
 	if elem == nil {
-		elem = CmpDeep{}
+		elem = EqDeep{}
 	}
-	return elem.Cmp(env, v1.Elem(), v2.Elem())
+	return elem.Eq(env, v1.Elem(), v2.Elem())
 }
 
-type CmpInterface struct {
-	Elem Cmper
+type EqInterface struct {
+	Elem Eqer
 }
 
-func (ci CmpInterface) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (ci EqInterface) Eq(env Env, v1, v2 reflect.Value) bool {
 	if v1.Kind() != reflect.Interface {
 		panic(ErrWrongType)
 	}
@@ -154,16 +154,16 @@ func (ci CmpInterface) Cmp(env Env, v1, v2 reflect.Value) bool {
 	}
 	elem := ci.Elem
 	if elem == nil {
-		elem = CmpDeep{}
+		elem = EqDeep{}
 	}
-	return elem.Cmp(env, e1, e2)
+	return elem.Eq(env, e1, e2)
 }
 
-type CmpStruct struct {
-	Fields map[Field]Cmper
+type EqStruct struct {
+	Fields map[Field]Eqer
 }
 
-func (cs CmpStruct) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (cs EqStruct) Eq(env Env, v1, v2 reflect.Value) bool {
 	t := v1.Type()
 	if t.Kind() != reflect.Struct {
 		panic(ErrWrongType)
@@ -185,25 +185,25 @@ func (cs CmpStruct) Cmp(env Env, v1, v2 reflect.Value) bool {
 		} else {
 			key = NamedField(f.Name)
 		}
-		cmper, ok := cs.Fields[key]
-		if !ok || cmper == nil {
-			cmper = CmpDeep{}
+		Eqer, ok := cs.Fields[key]
+		if !ok || Eqer == nil {
+			Eqer = EqDeep{}
 		}
 		val1 := v1.Field(fNum)
 		val2 := v2.Field(fNum)
-		if !cmper.Cmp(env, val1, val2) {
+		if !Eqer.Eq(env, val1, val2) {
 			return false
 		}
 	}
 	return true
 }
 
-type CmpSlice struct {
-	Elems Cmper
+type EqSlice struct {
+	Elems Eqer
 	// TODO: support unordered comparison?
 }
 
-func (cs CmpSlice) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (cs EqSlice) Eq(env Env, v1, v2 reflect.Value) bool {
 	switch v1.Kind() {
 	case reflect.Slice, reflect.Array:
 		// ok
@@ -218,24 +218,24 @@ func (cs CmpSlice) Cmp(env Env, v1, v2 reflect.Value) bool {
 	}
 	elems := cs.Elems
 	if elems == nil {
-		elems = CmpDeep{}
+		elems = EqDeep{}
 	}
 	for elemNum := range v1.Len() {
 		elem1 := v1.Index(elemNum)
 		elem2 := v2.Index(elemNum)
-		if !elems.Cmp(env, elem1, elem2) {
+		if !elems.Eq(env, elem1, elem2) {
 			return false
 		}
 	}
 	return true
 }
 
-type CmpMap struct {
-	Keys Cmper
-	Vals Cmper
+type EqMap struct {
+	Keys Eqer
+	Vals Eqer
 }
 
-func (cm CmpMap) Cmp(env Env, v1, v2 reflect.Value) bool {
+func (cm EqMap) Eq(env Env, v1, v2 reflect.Value) bool {
 	if v1.Kind() != reflect.Map {
 		panic(ErrWrongType)
 	}
@@ -247,11 +247,11 @@ func (cm CmpMap) Cmp(env Env, v1, v2 reflect.Value) bool {
 	}
 	keys := cm.Keys
 	if keys == nil {
-		keys = CmpDeep{}
+		keys = EqDeep{}
 	}
 	vals := cm.Vals
 	if vals == nil {
-		vals = CmpDeep{}
+		vals = EqDeep{}
 	}
 
 	type kv struct {
@@ -275,7 +275,7 @@ k2loop:
 			if used[idx] {
 				continue
 			}
-			if !keys.Cmp(env, kv1.key, k2) || !vals.Cmp(env, kv1.val, v2) {
+			if !keys.Eq(env, kv1.key, k2) || !vals.Eq(env, kv1.val, v2) {
 				continue
 			}
 			used[idx] = true
@@ -287,14 +287,14 @@ k2loop:
 	return true
 }
 
-func CmpOpt(t reflect.Type, cmper Cmper) Opt {
+func EqOpt(t reflect.Type, Eqer Eqer) Opt {
 	return OptFunc(func(env Env) {
-		env.Set(t, cmpTag{}, cmper)
+		env.Set(t, EqTag{}, Eqer)
 	})
 }
 
-func CmpOptAll(cmper Cmper) Opt {
+func EqOptAll(Eqer Eqer) Opt {
 	return OptFunc(func(env Env) {
-		env.SetAll(cmpTag{}, cmper)
+		env.SetAll(EqTag{}, Eqer)
 	})
 }
