@@ -1,6 +1,9 @@
 package ops
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+)
 
 type Cmper interface {
 	Cmp(Env, reflect.Value, reflect.Value) bool
@@ -64,7 +67,32 @@ func TryCmpFor[T any](env Env, in1, in2 T) (bool, error) {
 type cmpDefault struct{}
 
 func (cmpDefault) Cmp(env Env, v1, v2 reflect.Value) bool {
-	return false // TODO
+	t := v1.Type()
+	switch t.Kind() {
+	case reflect.Struct:
+		return CmpStruct{}.Cmp(env, v1, v2)
+	case reflect.Map:
+		return CmpMap{}.Cmp(env, v1, v2)
+	case reflect.Slice, reflect.Array:
+		return CmpSlice{}.Cmp(env, v1, v2)
+	case reflect.Ptr:
+		return CmpPointer{}.Cmp(env, v1, v2)
+	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		panic(fmt.Errorf("%w: cannot compare type %s", ErrInvalid, typeName(t)))
+	case reflect.Complex128, reflect.Complex64,
+		reflect.Float32, reflect.Float64,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.String, reflect.Bool:
+		if !v1.CanInterface() || !v2.CanInterface() {
+			panic(ErrInvalid) // TODO: better error?  Or handle via unsafe?
+		}
+		return v1.Interface() == v2.Interface()
+	case reflect.Interface:
+		return CmpInterface{}.Cmp(env, v1, v2)
+	default:
+		panic(fmt.Errorf("%w: unsupported kind %v for value %v", ErrInternal, t.Kind(), v1))
+	}
 }
 
 type CmpOptFunc func(Env, reflect.Value, reflect.Value) bool
