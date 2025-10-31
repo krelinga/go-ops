@@ -130,6 +130,134 @@ func (ci CmpInterface) Cmp(env Env, v1, v2 reflect.Value) bool {
 	return elem.Cmp(env, e1, e2)
 }
 
+type CmpStruct struct {
+	Fields map[Field]Cmper
+}
+
+func (cs CmpStruct) Cmp(env Env, v1, v2 reflect.Value) bool {
+	t := v1.Type()
+	if t.Kind() != reflect.Struct {
+		panic(ErrWrongType)
+	}
+	for f := range cs.Fields {
+		if f == nil {
+			panic(ErrNilField)
+		}
+	}
+	for fNum := range t.NumField() {
+		f := t.Field(fNum)
+		if !f.IsExported() {
+			// TODO: handle unexported fields?
+			continue
+		}
+		var key Field
+		if f.Anonymous {
+			key = EmbedField(f.Type)
+		} else {
+			key = NamedField(f.Name)
+		}
+		cmper, ok := cs.Fields[key]
+		if !ok || cmper == nil {
+			cmper = CmpDeep{}
+		}
+		val1 := v1.Field(fNum)
+		val2 := v2.Field(fNum)
+		if !cmper.Cmp(env, val1, val2) {
+			return false
+		}
+	}
+	return true
+}
+
+type CmpSlice struct {
+	Elems Cmper
+	// TODO: support unordered comparison?
+}
+
+func (cs CmpSlice) Cmp(env Env, v1, v2 reflect.Value) bool {
+	switch v1.Kind() {
+	case reflect.Slice, reflect.Array:
+		// ok
+	default:
+		panic(ErrWrongType)
+	}
+	if v1.Len() != v2.Len() {
+		return false
+	}
+	if v1.IsNil() != v2.IsNil() {
+		return false
+	}
+	elems := cs.Elems
+	if elems == nil {
+		elems = CmpDeep{}
+	}
+	for elemNum := range v1.Len() {
+		elem1 := v1.Index(elemNum)
+		elem2 := v2.Index(elemNum)
+		if !elems.Cmp(env, elem1, elem2) {
+			return false
+		}
+	}
+	return true
+}
+
+type CmpMap struct {
+	Keys Cmper
+	Vals Cmper
+}
+
+func (cm CmpMap) Cmp(env Env, v1, v2 reflect.Value) bool {
+	if v1.Kind() != reflect.Map {
+		panic(ErrWrongType)
+	}
+	if v1.Len() != v2.Len() {
+		return false
+	}
+	if v1.IsNil() != v2.IsNil() {
+		return false
+	}
+	keys := cm.Keys
+	if keys == nil {
+		keys = CmpDeep{}
+	}
+	vals := cm.Vals
+	if vals == nil {
+		vals = CmpDeep{}
+	}
+
+	type kv struct {
+		key reflect.Value
+		val reflect.Value
+	}
+	kvs1 := make([]kv, 0, v1.Len())
+	i := v1.MapRange()
+	for i.Next() {
+		k := i.Key()
+		v := i.Value()
+		kvs1 = append(kvs1, kv{key: k, val: v})
+	}
+	used := make([]bool, len(kvs1))
+	i = v2.MapRange()
+k2loop:
+	for i.Next() {
+		k2 := i.Key()
+		v2 := i.Value()
+		for idx, kv1 := range kvs1 {
+			if used[idx] {
+				continue
+			}
+			if !keys.Cmp(env, kv1.key, k2) || !vals.Cmp(env, kv1.val, v2) {
+				continue
+			}
+			used[idx] = true
+			continue k2loop
+		}
+		return false
+	}
+
+	return true
+}
+
 func CmpOpt(t reflect.Type, cmper Cmper) Opt {
 	return OptFunc(func(env Env) {
 		env.Set(t, cmpTag{}, cmper)
