@@ -78,6 +78,7 @@ func (cmpDefault) Cmp(env Env, v1, v2 reflect.Value) bool {
 	case reflect.Ptr:
 		return CmpPointer{}.Cmp(env, v1, v2)
 	case reflect.Chan, reflect.Func, reflect.UnsafePointer:
+		// TODO: consider at least allowing both to be nil?
 		panic(fmt.Errorf("%w: cannot compare type %s", ErrInvalid, typeName(t)))
 	case reflect.Complex128, reflect.Complex64,
 		reflect.Float32, reflect.Float64,
