@@ -349,3 +349,7 @@ func FmtOptFor[T any](typed func(Env, T) string) Opt {
 	}
 	return FmtOpt(reflect.TypeFor[T](), FmtFunc(typedFunc))
 }
+
+func FmtOptStringer[T fmt.Stringer]() Opt {
+	return FmtOpt(reflect.TypeFor[T](), FmtStringer{})
+}
