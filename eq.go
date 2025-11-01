@@ -298,3 +298,14 @@ func EqOptAll(eq Eq) Opt {
 		env.SetAll(eqTag{}, eq)
 	})
 }
+
+func EqOptBuiltin[T comparable]() Opt {
+	t := reflect.TypeFor[T]()
+	cmpFn := func(_ Env, v1, v2 reflect.Value) bool {
+		if !v1.CanInterface() || !v2.CanInterface() {
+			panic(ErrInvalid) // TODO: better error?  Or handle via unsafe?
+		}
+		return v1.Interface().(T) == v2.Interface().(T)
+	}
+	return EqOpt(t, EqOptFunc(cmpFn))
+}
